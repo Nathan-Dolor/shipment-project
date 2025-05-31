@@ -1,4 +1,4 @@
-# Shipment Management Dashboard
+# Freight Forwarding Shipment Management
 
 This is a full-stack web application that allows users to upload, process, and visualize freight shipment data from CSV files.
 
