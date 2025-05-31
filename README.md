@@ -73,6 +73,7 @@ Make sure the frontend API fetches point to the correct backend URL.
   - Pie Chart: Shipment Volume by Mode (Air, Sea).
   - Bar Chart: Daily Received Shipments grouped by Carrier.
   - Shipment Table: Sortable, searchable, filterable, and paginated shipment data.
+  - Shipment Details: Click a shipment in the table to view details
 
 - Responsive UI:
   - Clean and user-friendly layout for both desktop and mobile.
