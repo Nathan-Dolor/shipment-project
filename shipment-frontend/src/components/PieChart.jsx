@@ -23,7 +23,7 @@ const ModePieChart = ({ data }) => {
   return (
     <div>
       <h3 className="text-xl font-semibold mb-4 text-gray-700">
-        Shipment Volume by Mode ({totalVolume.toLocaleString()} cm³)
+        Shipment Volume by Mode
       </h3>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">

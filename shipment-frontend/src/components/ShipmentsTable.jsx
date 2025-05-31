@@ -13,7 +13,6 @@ function ShipmentsTable() {
   const [shipmentDetails, setShipmentDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
-  // Debounce search input
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(search), 500);
@@ -47,7 +46,7 @@ function ShipmentsTable() {
   }, [debouncedSearch, filters, sort]);
 
   useEffect(() => {
-    fetchShipments();
+    fetchShipments(pagination.current_page);
   }, [fetchShipments]);
 
   const handlePageChange = (page) => {
@@ -63,26 +62,37 @@ function ShipmentsTable() {
     }));
   };
 
-  useEffect(() => {
-  if (!selectedShipmentId) {
-    setShipmentDetails(null);
-    return;
-  }
-  setDetailsLoading(true);
-  fetch(`http://localhost:8000/api/shipment/${selectedShipmentId}`)
-    .then(res => res.json())
-    .then(data => setShipmentDetails(data))
-    .catch(err => {
-      console.error('Failed to fetch shipment details:', err);
-      setShipmentDetails(null);
-    })
-    .finally(() => setDetailsLoading(false));
-}, [selectedShipmentId]);
+  const getPageNumbers = () => {
+    const total = pagination.last_page;
+    const current = pagination.current_page;
+    const maxVisible = 5;
+    let start = Math.max(1, current - Math.floor(maxVisible / 2));
+    let end = Math.min(total, start + maxVisible - 1);
+    if (end - start < maxVisible - 1) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  };
 
+  const handleRowClick = async (shipmentId) => {
+    setSelectedShipmentId(shipmentId);
+    setDetailsLoading(true);
+    setShipmentDetails(null);
+
+    try {
+      const res = await fetch(`http://localhost:8000/api/shipment/${shipmentId}`);
+      const data = await res.json();
+      setShipmentDetails(data);
+    } catch (error) {
+      console.error('Failed to fetch shipment details:', error);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
 
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 max-w-6xl mx-auto">
-      <h2 className="text-2xl font-semibold mb-4 text-center">Shipments</h2>
+    <div className="p-6 max-w-6xl mx-auto">
+      <h2 className="text-2xl font-semibold mb-4">Shipments</h2>
 
       <div className="flex flex-wrap gap-4 mb-4">
         <input
@@ -96,11 +106,11 @@ function ShipmentsTable() {
         <select
           className="p-2 border rounded"
           value={filters.status}
-          onChange={e => setFilters(prev => ({ ...prev, status: e.target.value }))}
+          onChange={(e) => setFilters({ ...filters, status: e.target.value })}
         >
           <option value="">All Statuses</option>
-          <option value="received">Received</option>
-          <option value="intransit">In Transit</option>
+          <option value="pending">Pending</option>
+          <option value="in_transit">In Transit</option>
           <option value="delivered">Delivered</option>
         </select>
 
@@ -129,8 +139,6 @@ function ShipmentsTable() {
 
       {loading ? (
         <p>Loading...</p>
-      ) : shipments.length === 0 ? (
-        <p className="text-center italic">No shipments found.</p>
       ) : (
         <table className="w-full table-auto border-collapse border border-gray-300">
           <thead>
@@ -138,108 +146,101 @@ function ShipmentsTable() {
               {['shipment_id', 'origin', 'destination', 'carrier', 'status'].map((col) => (
                 <th
                   key={col}
-                  className={`p-2 border cursor-pointer hover:bg-gray-200 ${
-                    sort.sort_by === col ? 'bg-blue-100 font-semibold' : ''
-                  }`}
+                  className="p-2 border cursor-pointer hover:bg-gray-200"
                   onClick={() => toggleSort(col)}
                 >
-                  {col.replace('_', ' ').toUpperCase()}{' '}
-                  {sort.sort_by === col ? (sort.sort_order === 'asc' ? '↑' : '↓') : ''}
+                  {col.replace('_', ' ').toUpperCase()} {sort.sort_by === col ? (sort.sort_order === 'asc' ? '↑' : '↓') : ''}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {shipments.map((shipment) => (
-                <tr
+              <tr
                 key={shipment.shipment_id}
                 className="text-center border-t cursor-pointer hover:bg-gray-100"
-                onClick={() => setSelectedShipmentId(shipment.shipment_id)}
-                >
+                onClick={() => handleRowClick(shipment.shipment_id)}
+              >
                 <td className="p-2 border">{shipment.shipment_id}</td>
                 <td className="p-2 border">{shipment.origin}</td>
                 <td className="p-2 border">{shipment.destination}</td>
                 <td className="p-2 border">{shipment.carrier}</td>
                 <td className="p-2 border capitalize">{shipment.status}</td>
-                </tr>
+              </tr>
             ))}
           </tbody>
-
         </table>
       )}
 
       {pagination.last_page > 1 && (
-  <div className="mt-4 flex justify-center gap-2 items-center">
-    <button
-      className="px-3 py-1 rounded border bg-white text-blue-500 hover:bg-gray-100 disabled:opacity-50"
-      onClick={() => handlePageChange(pagination.current_page - 1)}
-      disabled={pagination.current_page === 1 || loading}
-    >
-      Previous
-    </button>
+        <div className="mt-4 flex justify-center gap-2 items-center">
+          <button
+            className="px-3 py-1 rounded border bg-white text-blue-500 hover:bg-gray-100 disabled:opacity-50"
+            onClick={() => handlePageChange(pagination.current_page - 1)}
+            disabled={pagination.current_page === 1 || loading}
+          >
+            Previous
+          </button>
 
-    {[...Array(pagination.last_page)].map((_, i) => (
-      <button
-        key={i + 1}
-        className={`px-3 py-1 rounded border transition ${
-          pagination.current_page === i + 1
-            ? '!bg-gray-200 font-bold text-gray-900'
-            : 'bg-white text-blue-500 hover:bg-gray-100'
-        }`}
-        onClick={() => handlePageChange(i + 1)}
-        disabled={loading}
-      >
-        {i + 1}
-      </button>
-    ))}
-
-    <button
-      className="px-3 py-1 rounded border bg-white text-blue-500 hover:bg-gray-100 disabled:opacity-50"
-      onClick={() => handlePageChange(pagination.current_page + 1)}
-      disabled={pagination.current_page === pagination.last_page || loading}
-    >
-      Next
-    </button>
-  </div>
-)}
-
-
-      {selectedShipmentId && (
-        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
-            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl relative">
+          {getPageNumbers().map((page) => (
             <button
-                onClick={() => setSelectedShipmentId(null)}
-                className="absolute top-2 right-2 text-gray-500 hover:text-red-500"
+              key={page}
+              className={`px-3 py-1 rounded border transition ${
+                pagination.current_page === page
+                  ? '!bg-gray-200 font-bold text-gray-900'
+                  : 'bg-white text-blue-500 hover:bg-gray-100'
+              }`}
+              onClick={() => handlePageChange(page)}
+              disabled={loading}
             >
-                ✕
+              {page}
             </button>
+          ))}
 
-            {detailsLoading ? (
-                <p>Loading details...</p>
-            ) : shipmentDetails ? (
-                <div>
-                <h3 className="text-xl font-semibold mb-4">Shipment Details</h3>
-                <div className="space-y-2">
-                    <div><strong>Shipment ID:</strong> {shipmentDetails.shipment_id}</div>
-                    <div><strong>Origin:</strong> {shipmentDetails.origin}</div>
-                    <div><strong>Destination:</strong> {shipmentDetails.destination}</div>
-                    <div><strong>Carrier:</strong> {shipmentDetails.carrier}</div>
-                    <div><strong>Status:</strong> {shipmentDetails.status}</div>
-                    <div><strong>Weight:</strong> {shipmentDetails.weight}g</div>
-                    <div><strong>Volume:</strong> {shipmentDetails.volume}cm³</div>
-                    <div><strong>Arrival Date:</strong> {shipmentDetails.arrival_date}</div>
-                    <div><strong>Departure Date:</strong> {shipmentDetails.departure_date || 'Not departed yet'}</div>
-                    <div><strong>Delivered Date:</strong> {shipmentDetails.delivered_date || 'Not delivered yet'}</div>
-                </div>
-                </div>
-            ) : (
-                <p>Failed to load details.</p>
-            )}
-            </div>
+          <button
+            className="px-3 py-1 rounded border bg-white text-blue-500 hover:bg-gray-100 disabled:opacity-50"
+            onClick={() => handlePageChange(pagination.current_page + 1)}
+            disabled={pagination.current_page === pagination.last_page || loading}
+          >
+            Next
+          </button>
         </div>
       )}
 
+      {selectedShipmentId && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl relative">
+            <button
+              onClick={() => setSelectedShipmentId(null)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-red-500"
+            >
+              ✕
+            </button>
 
+            {detailsLoading ? (
+              <p>Loading details...</p>
+            ) : shipmentDetails ? (
+              <div>
+                <h3 className="text-xl font-semibold mb-4">Shipment Details</h3>
+                <div className="space-y-2">
+                  <div><strong>Shipment ID:</strong> {shipmentDetails.shipment_id}</div>
+                  <div><strong>Origin:</strong> {shipmentDetails.origin}</div>
+                  <div><strong>Destination:</strong> {shipmentDetails.destination}</div>
+                  <div><strong>Carrier:</strong> {shipmentDetails.carrier}</div>
+                  <div><strong>Status:</strong> {shipmentDetails.status}</div>
+                  <div><strong>Weight:</strong> {shipmentDetails.weight}g</div>
+                  <div><strong>Volume:</strong> {shipmentDetails.volume}cm³</div>
+                  <div><strong>Arrival Date:</strong> {shipmentDetails.arrival_date}</div>
+                  <div><strong>Departure Date:</strong> {shipmentDetails.departure_date || 'Not departed yet'}</div>
+                  <div><strong>Delivered Date:</strong> {shipmentDetails.delivered_date || 'Not delivered yet'}</div>
+                </div>
+              </div>
+            ) : (
+              <p>Failed to load details.</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
